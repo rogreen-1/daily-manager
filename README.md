@@ -11,7 +11,7 @@ Distraction-free.
 
 ## Live Site
 
-https://yourusername.github.io/reponame/
+https://github.com/rogreen-1/daily-manager
 
 ## Philosophy
 
