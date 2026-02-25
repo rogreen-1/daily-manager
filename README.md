@@ -27,5 +27,3 @@ https://github.com/rogreen-1/daily-manager
 - Vanilla JavaScript
 - LocalStorage (for task persistence)
 - GitHub Pages
-
-## 📂 Structure
