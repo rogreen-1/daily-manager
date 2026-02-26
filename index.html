@@ -1,20 +1,30 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Daily Focus</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="container">
-    <h1>Today</h1>
-    <ul id="task-list">
-      <li><input type="checkbox"> Finish case writeup</li>
-      <li><input type="checkbox"> Workout</li>
-      <li><input type="checkbox"> Apply to 1 internship</li>
-    </ul>
-    <button onclick="addTask()">+ Add Task</button>
-  </div>
+<div class="container">
+  <header class="header">
+    <div>
+      <h1>Daily Focus</h1>
+      <p class="sub" id="date"></p>
+    </div>
+    <div class="stats">
+      <div class="pill" id="pct">0%</div>
+      <div class="meta" id="meta">0/0 done</div>
+    </div>
+  </header>
 
-  <script src="script.js"></script>
-</body>
-</html>
+  <form id="task-form" class="add">
+    <input id="task-input" class="input" placeholder="Add a task…" autocomplete="off" />
+    <button class="btn" type="submit">Add</button>
+  </form>
+
+  <ul id="task-list" class="list"></ul>
+
+  <footer class="footer">
+    <button id="clear" class="link">Clear</button>
+    <span class="dot">•</span>
+    <span class="hint">Saved automatically</span>
+  </footer>
+</div>
+
+<script>
+  document.getElementById("date").textContent =
+    new Date().toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric" });
+</script>
