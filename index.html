@@ -21,10 +21,19 @@
         </div>
       </header>
 
-      <form id="task-form" class="add" autocomplete="off">
-        <input id="task-input" class="input" placeholder="Add a task…" />
-        <button class="btn" type="submit">Add</button>
-      </form>
+<form id="task-form" class="add" autocomplete="off">
+  <input id="task-input" class="input" placeholder="Add a task…" />
+
+  <select id="task-rank" class="select" title="Importance">
+    <option value="3">High</option>
+    <option value="2" selected>Medium</option>
+    <option value="1">Low</option>
+  </select>
+
+  <input id="task-deadline" class="date" type="date" title="Deadline" />
+
+  <button class="btn" type="submit">Add</button>
+</form>
 
       <ul id="task-list" class="list"></ul>
 
