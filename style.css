@@ -370,3 +370,48 @@ h1{
 .dot.filled{
   background: rgba(0,0,0,.55);
 }
+
+/* TODAY highlight */
+.day.today{
+  border: 2px solid #111;
+}
+
+/* Overdue highlight */
+.day.overdue{
+  border: 2px solid #c33;
+}
+
+/* Task count text */
+.count{
+  font-family: ui-sans-serif, system-ui;
+  font-size: 12px;
+  color: rgba(0,0,0,.60);
+}
+
+/* Week view section */
+.week-view{
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+.weekbox{
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  background: white;
+}
+
+.weeklabel{
+  font-family: ui-sans-serif, system-ui;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.weekstats{
+  font-family: ui-sans-serif, system-ui;
+  font-size: 14px;
+  margin-top: 6px;
+}
