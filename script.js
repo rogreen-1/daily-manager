@@ -1,4 +1,4 @@
-const STORAGE_KEY = "daily-focus:v2";
+const STORAGE_KEY = "daily-focus:by-date:v1";
 
 const list = document.getElementById("task-list");
 const form = document.getElementById("task-form");
@@ -9,16 +9,32 @@ const pctEl = document.getElementById("pct");
 const metaEl = document.getElementById("meta");
 const clearBtn = document.getElementById("clear");
 
-function load() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? [];
-  } catch {
-    return [];
-  }
+function pad(n){ return String(n).padStart(2,"0"); }
+function todayKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
+function getDateKeyFromURL(){
+  const q = new URLSearchParams(location.search);
+  return q.get("date") || todayKey();
+}
+const DATE_KEY = getDateKeyFromURL();
 
-function save(tasks) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+function loadAll() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {}; }
+  catch { return {}; }
+}
+function saveAll(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+function loadTasksForDay(dateKey){
+  const data = loadAll();
+  return Array.isArray(data[dateKey]) ? data[dateKey] : [];
+}
+function saveTasksForDay(dateKey, tasks){
+  const data = loadAll();
+  data[dateKey] = tasks;
+  saveAll(data);
 }
 
 function updateStats(tasks) {
@@ -36,31 +52,15 @@ function el(tag, className, text) {
   return node;
 }
 
-function rankLabel(r) {
-  if (r === 3) return "High";
-  if (r === 2) return "Med";
-  return "Low";
-}
-
-function deadlineKey(d) {
-  // for sorting; empty deadlines go last
-  return d ? Date.parse(d) : Number.POSITIVE_INFINITY;
-}
+function rankLabel(r){ return r===3 ? "High" : r===2 ? "Med" : "Low"; }
+function deadlineKey(d){ return d ? Date.parse(d) : Number.POSITIVE_INFINITY; }
 
 function sortTasks(tasks) {
-  return [...tasks].sort((a, b) => {
-    // unfinished first
-    if (a.done !== b.done) return a.done ? 1 : -1;
-
-    // rank high -> low
-    if (b.rank !== a.rank) return b.rank - a.rank;
-
-    // earlier deadline first (no deadline last)
-    const da = deadlineKey(a.deadline);
-    const db = deadlineKey(b.deadline);
-    if (da !== db) return da - db;
-
-    // stable-ish fallback: older first
+  return [...tasks].sort((a,b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;      // unfinished first
+    if (b.rank !== a.rank) return b.rank - a.rank;      // rank high first
+    const da = deadlineKey(a.deadline), db = deadlineKey(b.deadline);
+    if (da !== db) return da - db;                      // earlier deadline first
     return (a.createdAt ?? 0) - (b.createdAt ?? 0);
   });
 }
@@ -70,7 +70,7 @@ function render(tasks) {
   list.innerHTML = "";
 
   if (sorted.length === 0) {
-    list.appendChild(el("li", "empty", "No tasks yet."));
+    list.appendChild(el("li","empty","No tasks yet. Keep it small: 3–5 is perfect."));
     updateStats(sorted);
     return;
   }
@@ -78,15 +78,15 @@ function render(tasks) {
   for (const t of sorted) {
     const row = el("li", `row ${t.done ? "done" : ""}`);
 
-    const check = el("button", "check", t.done ? "✓" : "");
+    const check = el("button","check", t.done ? "✓" : "");
     check.type = "button";
     check.onclick = () => {
       t.done = !t.done;
-      save(tasks);
+      saveTasksForDay(DATE_KEY, tasks);
       render(tasks);
     };
 
-    const text = el("button", "text", t.text);
+    const text = el("button","text", t.text);
     text.type = "button";
     text.onclick = () => {
       const next = prompt("Edit task text:", t.text);
@@ -94,20 +94,19 @@ function render(tasks) {
       const trimmed = next.trim();
       if (!trimmed) return;
       t.text = trimmed;
-      save(tasks);
+      saveTasksForDay(DATE_KEY, tasks);
       render(tasks);
     };
 
-    // meta badges: rank + deadline
-    const badges = el("div", "badges");
-    badges.style.display = "flex";
-    badges.style.gap = "8px";
-    badges.style.alignItems = "center";
+    // badges
+    const badges = el("div","");
+    badges.style.display="flex";
+    badges.style.gap="8px";
+    badges.style.alignItems="center";
 
-    const rankBadge = el("span", "badge", "");
+    const rankBadge = el("span","badge","");
     rankBadge.innerHTML = `Priority: <span class="rank">${rankLabel(t.rank)}</span>`;
-    rankBadge.title = "Click to change priority";
-    rankBadge.style.cursor = "pointer";
+    rankBadge.style.cursor="pointer";
     rankBadge.onclick = () => {
       const next = prompt("Priority (High/Medium/Low):", rankLabel(t.rank));
       if (next === null) return;
@@ -116,58 +115,49 @@ function render(tasks) {
       else if (v.startsWith("m")) t.rank = 2;
       else if (v.startsWith("l")) t.rank = 1;
       else return;
-      save(tasks);
+      saveTasksForDay(DATE_KEY, tasks);
       render(tasks);
     };
-
     badges.appendChild(rankBadge);
 
-    if (t.deadline) {
-      const dBadge = el("span", "badge", `Due: ${t.deadline}`);
-      dBadge.title = "Click to edit deadline";
-      dBadge.style.cursor = "pointer";
-      dBadge.onclick = () => {
-        const next = prompt("Deadline (YYYY-MM-DD) or blank to remove:", t.deadline);
-        if (next === null) return;
-        const trimmed = next.trim();
-        t.deadline = trimmed === "" ? "" : trimmed;
-        save(tasks);
-        render(tasks);
-      };
-      badges.appendChild(dBadge);
-    } else {
-      const addDue = el("span", "badge", "Add due date");
-      addDue.title = "Click to add a deadline";
-      addDue.style.cursor = "pointer";
-      addDue.onclick = () => {
-        const next = prompt("Deadline (YYYY-MM-DD):", "");
-        if (next === null) return;
-        const trimmed = next.trim();
-        if (!trimmed) return;
-        t.deadline = trimmed;
-        save(tasks);
-        render(tasks);
-      };
-      badges.appendChild(addDue);
-    }
-
-    const trash = el("button", "trash", "×");
-    trash.type = "button";
-    trash.onclick = () => {
-      tasks = tasks.filter(x => x.id !== t.id);
-      save(tasks);
+    const dueBadge = el("span","badge", t.deadline ? `Due: ${t.deadline}` : "Add due date");
+    dueBadge.style.cursor="pointer";
+    dueBadge.onclick = () => {
+      const next = prompt("Deadline (YYYY-MM-DD) or blank to remove:", t.deadline || "");
+      if (next === null) return;
+      t.deadline = next.trim();
+      saveTasksForDay(DATE_KEY, tasks);
       render(tasks);
     };
+    badges.appendChild(dueBadge);
 
-    // Layout: check + text + badges + delete
-    const mid = el("div", "");
-    mid.style.flex = "1";
-    mid.style.display = "flex";
-    mid.style.flexDirection = "column";
-    mid.style.gap = "8px";
+    // UI delete confirm (two-step)
+    const trash = el("button","trash","×");
+    trash.type = "button";
 
-    mid.appendChild(text);
-    mid.appendChild(badges);
+    trash.onclick = () => {
+      const wrap = el("div","confirm-wrap");
+      const confirmBtn = el("button","confirm-btn","Confirm");
+      const cancelBtn  = el("button","cancel-btn","Cancel");
+      confirmBtn.type = cancelBtn.type = "button";
+
+      confirmBtn.onclick = () => {
+        tasks = tasks.filter(x => x.id !== t.id);
+        saveTasksForDay(DATE_KEY, tasks);
+        render(tasks);
+      };
+      cancelBtn.onclick = () => render(tasks);
+
+      wrap.append(confirmBtn, cancelBtn);
+      row.replaceChild(wrap, trash);
+    };
+
+    const mid = el("div","");
+    mid.style.flex="1";
+    mid.style.display="flex";
+    mid.style.flexDirection="column";
+    mid.style.gap="8px";
+    mid.append(text, badges);
 
     row.append(check, mid, trash);
     list.appendChild(row);
@@ -176,62 +166,36 @@ function render(tasks) {
   updateStats(tasks);
 }
 
-let tasks = load();
+let tasks = loadTasksForDay(DATE_KEY);
 render(tasks);
 
-form.addEventListener("submit", (e) => {
+form.addEventListener("submit",(e)=>{
   e.preventDefault();
   const v = input.value.trim();
   if (!v) return;
 
-  const rank = parseInt(rankInput.value, 10);     // 1..3
-  const deadline = deadlineInput.value || "";     // "" or YYYY-MM-DD
+  const rank = parseInt(rankInput.value || "2", 10); // default medium if blank
+  const deadline = deadlineInput.value || "";
 
-  tasks = [
-    {
-      id: crypto.randomUUID(),
-      text: v,
-      done: false,
-      rank,
-      deadline,
-      createdAt: Date.now(),
-    },
-    ...tasks,
-  ];
+  tasks = [{
+    id: crypto.randomUUID(),
+    text: v,
+    done: false,
+    rank,
+    deadline,
+    createdAt: Date.now()
+  }, ...tasks];
 
   input.value = "";
   deadlineInput.value = "";
-  rankInput.value = "";
 
-  save(tasks);
+  saveTasksForDay(DATE_KEY, tasks);
   render(tasks);
 });
 
-const trash = el("button", "trash", "×");
-trash.type = "button";
-
-trash.onclick = () => {
-  // Replace trash button with confirm controls
-  const confirmWrap = el("div", "confirm-wrap");
-
-  const confirmBtn = el("button", "confirm-btn", "Confirm");
-  confirmBtn.type = "button";
-
-  const cancelBtn = el("button", "cancel-btn", "Cancel");
-  cancelBtn.type = "button";
-
-  confirmBtn.onclick = () => {
-    tasks = tasks.filter(x => x.id !== t.id);
-    save(tasks);
-    render(tasks);
-  };
-
-  cancelBtn.onclick = () => {
-    render(tasks);
-  };
-
-  confirmWrap.append(confirmBtn, cancelBtn);
-
-  // Replace trash button visually
-  row.replaceChild(confirmWrap, trash);
-};
+clearBtn.addEventListener("click",()=>{
+  if (!confirm("Clear tasks for this day?")) return;
+  tasks = [];
+  saveTasksForDay(DATE_KEY, tasks);
+  render(tasks);
+});
