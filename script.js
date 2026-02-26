@@ -201,7 +201,7 @@ form.addEventListener("submit", (e) => {
 
   input.value = "";
   deadlineInput.value = "";
-  rankInput.value = "2";
+  rankInput.value = "";
 
   save(tasks);
   render(tasks);
