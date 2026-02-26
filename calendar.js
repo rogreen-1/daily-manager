@@ -22,14 +22,14 @@ view.setDate(1);
 
 document.getElementById("prev").onclick = () => {
   view.setMonth(view.getMonth() - 1);
-  render();
+  renderMonth();
 };
 document.getElementById("next").onclick = () => {
   view.setMonth(view.getMonth() + 1);
-  render();
+  renderMonth();
 };
 
-function render(){
+function renderMonth(){
   const data = loadAll();
   const year = view.getFullYear();
   const month = view.getMonth();
@@ -42,7 +42,7 @@ function render(){
 
   grid.innerHTML = "";
 
-  // leading blanks from previous month
+  // leading blanks
   for (let i=0; i<startDow; i++){
     const d = new Date(year, month, 1 - (startDow - i));
     grid.appendChild(dayCell(d, true, data));
@@ -54,50 +54,81 @@ function render(){
     grid.appendChild(dayCell(d, false, data));
   }
 
-  // trailing to complete grid rows (optional)
-  const totalCells = grid.children.length;
-  const remainder = totalCells % 7;
-  if (remainder !== 0){
-    const add = 7 - remainder;
-    for (let i=1; i<=add; i++){
-      const d = new Date(year, month, daysInMonth + i);
-      grid.appendChild(dayCell(d, true, data));
-    }
+  // trailing blanks
+  while (grid.children.length % 7 !== 0){
+    const last = new Date(year, month, grid.children.length - startDow + 1);
+    grid.appendChild(dayCell(last, true, data));
   }
+
+  renderWeek();
 }
 
 function dayCell(dateObj, muted, data){
+  const today = keyFromDate(new Date());
   const k = keyFromDate(dateObj);
   const tasks = Array.isArray(data[k]) ? data[k] : [];
+
   const total = tasks.length;
   const done = tasks.filter(t => t.done).length;
+  const overdue = tasks.some(t => !t.done && t.deadline && t.deadline < today);
 
   const cell = document.createElement("div");
-  cell.className = `day ${muted ? "muted" : ""}`;
+  cell.className = `day ${muted ? "muted" : ""} ${k === today ? "today" : ""} ${overdue ? "overdue" : ""}`;
 
   const top = document.createElement("div");
   top.className = "daynum";
   top.textContent = dateObj.getDate();
 
-  const bottom = document.createElement("div");
-  bottom.className = "dotrow";
-
-  // Show up to 5 dots as a tiny “how full was the day” indicator
-  const dots = Math.min(5, total);
-  for (let i=0; i<dots; i++){
-    const dot = document.createElement("div");
-    dot.className = "dot" + (i < done ? " filled" : "");
-    bottom.appendChild(dot);
+  const count = document.createElement("div");
+  count.className = "count";
+  if (total > 0){
+    count.textContent = `${done}/${total}`;
   }
 
-  cell.append(top, bottom);
+  cell.append(top, count);
 
-  cell.onclick = () => {
-    // Open that day in day-view
-    window.location.href = `./index.html?date=${k}`;
-  };
+  // Removed click behavior entirely
 
   return cell;
 }
 
-render();
+/* --------- WEEK VIEW --------- */
+
+function renderWeek(){
+  const data = loadAll();
+  const weekContainer = document.getElementById("weekView");
+
+  if (!weekContainer) return;
+
+  weekContainer.innerHTML = "";
+
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(today.getDate() - today.getDay());
+
+  for (let i=0; i<7; i++){
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const k = keyFromDate(d);
+
+    const tasks = Array.isArray(data[k]) ? data[k] : [];
+    const total = tasks.length;
+    const done = tasks.filter(t => t.done).length;
+
+    const box = document.createElement("div");
+    box.className = "weekbox";
+
+    const label = document.createElement("div");
+    label.className = "weeklabel";
+    label.textContent = d.toLocaleDateString(undefined,{ weekday:"short" });
+
+    const stats = document.createElement("div");
+    stats.className = "weekstats";
+    stats.textContent = total ? `${done}/${total}` : "-";
+
+    box.append(label, stats);
+    weekContainer.appendChild(box);
+  }
+}
+
+renderMonth();
