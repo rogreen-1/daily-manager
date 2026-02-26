@@ -70,7 +70,7 @@ function render(tasks) {
   list.innerHTML = "";
 
   if (sorted.length === 0) {
-    list.appendChild(el("li", "empty", "No tasks yet. Keep it small: 3–5 is perfect."));
+    list.appendChild(el("li", "empty", "No tasks yet."));
     updateStats(sorted);
     return;
   }
