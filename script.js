@@ -207,9 +207,31 @@ form.addEventListener("submit", (e) => {
   render(tasks);
 });
 
-clearBtn.addEventListener("click", () => {
-  if (!confirm("Clear today’s tasks?")) return;
-  tasks = [];
-  save(tasks);
-  render(tasks);
-});
+const trash = el("button", "trash", "×");
+trash.type = "button";
+
+trash.onclick = () => {
+  // Replace trash button with confirm controls
+  const confirmWrap = el("div", "confirm-wrap");
+
+  const confirmBtn = el("button", "confirm-btn", "Confirm");
+  confirmBtn.type = "button";
+
+  const cancelBtn = el("button", "cancel-btn", "Cancel");
+  cancelBtn.type = "button";
+
+  confirmBtn.onclick = () => {
+    tasks = tasks.filter(x => x.id !== t.id);
+    save(tasks);
+    render(tasks);
+  };
+
+  cancelBtn.onclick = () => {
+    render(tasks);
+  };
+
+  confirmWrap.append(confirmBtn, cancelBtn);
+
+  // Replace trash button visually
+  row.replaceChild(confirmWrap, trash);
+};
