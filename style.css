@@ -203,3 +203,26 @@ h1{
 }
 
 .dot{ opacity: .6; }
+
+.select, .date{
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 12px;
+  background: white;
+  font-size: 14px;
+  outline: none;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  transition: border-color .15s ease;
+}
+
+.select:focus, .date:focus{
+  border-color: rgba(0,0,0,.25);
+}
+
+/* On small screens, let the form wrap nicely */
+.add{
+  flex-wrap: wrap;
+}
+.select, .date, .btn{
+  flex: 0 0 auto;
+}
