@@ -226,3 +226,21 @@ h1{
 .select, .date, .btn{
   flex: 0 0 auto;
 }
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(0,0,0,.03);
+  color: var(--muted);
+  font-size: 12px;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  white-space: nowrap;
+}
+
+.rank{
+  font-weight: 600;
+  color: rgba(0,0,0,.70);
+}
