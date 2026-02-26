@@ -11,7 +11,7 @@ Distraction-free.
 
 ## Live Site
 
-https://rogreen-1/daily-manager
+(https://rogreen-1.github.io/daily-manager/)
 
 ## Philosophy
 
