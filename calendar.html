@@ -1,1 +1,34 @@
 <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calendar — Daily Focus</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="page">
+    <section class="card">
+      <header class="header">
+        <div>
+          <h1>Calendar</h1>
+          <p class="sub" id="monthLabel"></p>
+        </div>
+        <nav class="nav">
+          <a class="navlink" href="./index.html">Today</a>
+        </nav>
+      </header>
+
+      <div class="cal-controls">
+        <button class="btn-lite" id="prev">←</button>
+        <button class="btn-lite" id="next">→</button>
+      </div>
+
+      <div class="cal-weekdays" id="weekdays"></div>
+      <div class="cal-grid" id="grid"></div>
+    </section>
+  </main>
+
+  <script src="calendar.js"></script>
+</body>
+</html>
