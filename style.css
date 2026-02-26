@@ -277,3 +277,22 @@ h1{
 .cancel-btn:hover{
   background:rgba(0,0,0,.05);
 }
+.nav{
+  display:flex;
+  gap:12px;
+  justify-content:flex-end;
+  margin-bottom: 6px;
+}
+
+.navlink{
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  font-size: 13px;
+  color: rgba(0,0,0,.65);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.02);
+}
+
+.navlink:hover{ background: rgba(0,0,0,.05); }
