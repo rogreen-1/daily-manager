@@ -66,6 +66,8 @@ const pctEl = document.getElementById("pct");
 const metaEl = document.getElementById("meta");
 const clearBtn = document.getElementById("clear");
 
+const DATE_KEY = getDateKeyFromURL();
+
 function pad(n){ return String(n).padStart(2,"0"); }
 function todayKey(){
   const d = new Date();
@@ -122,7 +124,7 @@ function render(tasks) {
     check.type = "button";
     check.onclick = () => {
       t.done = !t.done;
-      saveTasksForDay(DATE_KEY, tasks);
+      setTasks(DATE_KEY, tasks);;
       render(tasks);
     };
 
@@ -134,7 +136,7 @@ function render(tasks) {
       const trimmed = next.trim();
       if (!trimmed) return;
       t.text = trimmed;
-      saveTasksForDay(DATE_KEY, tasks);
+      setTasks(DATE_KEY, tasks);;
       render(tasks);
     };
 
@@ -155,7 +157,7 @@ function render(tasks) {
       else if (v.startsWith("m")) t.rank = 2;
       else if (v.startsWith("l")) t.rank = 1;
       else return;
-      saveTasksForDay(DATE_KEY, tasks);
+      setTasks(DATE_KEY, tasks);;
       render(tasks);
     };
     badges.appendChild(rankBadge);
@@ -166,7 +168,7 @@ function render(tasks) {
       const next = prompt("Deadline (YYYY-MM-DD) or blank to remove:", t.deadline || "");
       if (next === null) return;
       t.deadline = next.trim();
-      saveTasksForDay(DATE_KEY, tasks);
+      setTasks(DATE_KEY, tasks);;
       render(tasks);
     };
     badges.appendChild(dueBadge);
@@ -183,7 +185,7 @@ function render(tasks) {
 
       confirmBtn.onclick = () => {
         tasks = tasks.filter(x => x.id !== t.id);
-        saveTasksForDay(DATE_KEY, tasks);
+        setTasks(DATE_KEY, tasks);;
         render(tasks);
       };
       cancelBtn.onclick = () => render(tasks);
@@ -206,7 +208,7 @@ function render(tasks) {
   updateStats(tasks);
 }
 
-let tasks = loadTasksForDay(DATE_KEY);
+let tasks = getTasks(DATE_KEY);
 render(tasks);
 
 form.addEventListener("submit",(e)=>{
@@ -229,13 +231,13 @@ form.addEventListener("submit",(e)=>{
   input.value = "";
   deadlineInput.value = "";
 
-  saveTasksForDay(DATE_KEY, tasks);
+  setTasks(DATE_KEY, tasks);;
   render(tasks);
 });
 
 clearBtn.addEventListener("click",()=>{
   if (!confirm("Clear tasks for this day?")) return;
   tasks = [];
-  saveTasksForDay(DATE_KEY, tasks);
+  setTasks(DATE_KEY, tasks);;
   render(tasks);
 });
