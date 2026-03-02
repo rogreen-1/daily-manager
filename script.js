@@ -2,14 +2,12 @@ const STORE_KEY = "daily-focus:data:v1";
 const SCHEMA_VERSION = 1;
 
 function now() { return Date.now(); }
-function pad(n){ return String(n).padStart(2,"0"); }
-
-function todayKey(){
+function pad(n) { return String(n).padStart(2, "0"); }
+function todayKey() {
   const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
-
-function getDateKeyFromURL(){
+function getDateKeyFromURL() {
   const q = new URLSearchParams(location.search);
   return q.get("date") || todayKey();
 }
@@ -17,7 +15,6 @@ function getDateKeyFromURL(){
 function emptyStore() {
   return { meta: { schema: SCHEMA_VERSION, updatedAt: now() }, days: {} };
 }
-
 function loadStore() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
@@ -31,25 +28,21 @@ function loadStore() {
     return emptyStore();
   }
 }
-
 function saveStore(store) {
   store.meta = store.meta || {};
   store.meta.schema = SCHEMA_VERSION;
   store.meta.updatedAt = now();
   localStorage.setItem(STORE_KEY, JSON.stringify(store));
 }
-
 function getDay(store, dateKey) {
   store.days[dateKey] = store.days[dateKey] || { tasks: [] };
   store.days[dateKey].tasks = store.days[dateKey].tasks || [];
   return store.days[dateKey];
 }
-
 function getTasks(dateKey) {
   const store = loadStore();
   return getDay(store, dateKey).tasks;
 }
-
 function setTasks(dateKey, tasks) {
   const store = loadStore();
   getDay(store, dateKey).tasks = tasks;
@@ -68,17 +61,6 @@ const clearBtn = document.getElementById("clear");
 
 const DATE_KEY = getDateKeyFromURL();
 
-function pad(n){ return String(n).padStart(2,"0"); }
-function todayKey(){
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-}
-function getDateKeyFromURL(){
-  const q = new URLSearchParams(location.search);
-  return q.get("date") || todayKey();
-}
-const DATE_KEY = getDateKeyFromURL();
-
 function updateStats(tasks) {
   const total = tasks.length;
   const done = tasks.filter(t => t.done).length;
@@ -94,15 +76,15 @@ function el(tag, className, text) {
   return node;
 }
 
-function rankLabel(r){ return r===3 ? "High" : r===2 ? "Med" : "Low"; }
-function deadlineKey(d){ return d ? Date.parse(d) : Number.POSITIVE_INFINITY; }
+function rankLabel(r) { return r === 3 ? "High" : r === 2 ? "Med" : "Low"; }
+function deadlineKey(d) { return d ? Date.parse(d) : Number.POSITIVE_INFINITY; }
 
 function sortTasks(tasks) {
-  return [...tasks].sort((a,b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1;      // unfinished first
-    if (b.rank !== a.rank) return b.rank - a.rank;      // rank high first
+  return [...tasks].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (b.rank !== a.rank) return b.rank - a.rank;
     const da = deadlineKey(a.deadline), db = deadlineKey(b.deadline);
-    if (da !== db) return da - db;                      // earlier deadline first
+    if (da !== db) return da - db;
     return (a.createdAt ?? 0) - (b.createdAt ?? 0);
   });
 }
@@ -110,25 +92,23 @@ function sortTasks(tasks) {
 function render(tasks) {
   const sorted = sortTasks(tasks);
   list.innerHTML = "";
-
   if (sorted.length === 0) {
-    list.appendChild(el("li","empty","No tasks yet."));
+    list.appendChild(el("li", "empty", "No tasks yet."));
     updateStats(sorted);
     return;
   }
-
   for (const t of sorted) {
     const row = el("li", `row ${t.done ? "done" : ""}`);
 
-    const check = el("button","check", t.done ? "✓" : "");
+    const check = el("button", "check", t.done ? "✓" : "");
     check.type = "button";
     check.onclick = () => {
       t.done = !t.done;
-      setTasks(DATE_KEY, tasks);;
+      setTasks(DATE_KEY, tasks);
       render(tasks);
     };
 
-    const text = el("button","text", t.text);
+    const text = el("button", "text", t.text);
     text.type = "button";
     text.onclick = () => {
       const next = prompt("Edit task text:", t.text);
@@ -136,19 +116,18 @@ function render(tasks) {
       const trimmed = next.trim();
       if (!trimmed) return;
       t.text = trimmed;
-      setTasks(DATE_KEY, tasks);;
+      setTasks(DATE_KEY, tasks);
       render(tasks);
     };
 
-    // badges
-    const badges = el("div","");
-    badges.style.display="flex";
-    badges.style.gap="8px";
-    badges.style.alignItems="center";
+    const badges = el("div", "");
+    badges.style.display = "flex";
+    badges.style.gap = "8px";
+    badges.style.alignItems = "center";
 
-    const rankBadge = el("span","badge","");
+    const rankBadge = el("span", "badge", "");
     rankBadge.innerHTML = `Priority: <span class="rank">${rankLabel(t.rank)}</span>`;
-    rankBadge.style.cursor="pointer";
+    rankBadge.style.cursor = "pointer";
     rankBadge.onclick = () => {
       const next = prompt("Priority (High/Medium/Low):", rankLabel(t.rank));
       if (next === null) return;
@@ -157,66 +136,69 @@ function render(tasks) {
       else if (v.startsWith("m")) t.rank = 2;
       else if (v.startsWith("l")) t.rank = 1;
       else return;
-      setTasks(DATE_KEY, tasks);;
+      setTasks(DATE_KEY, tasks);
       render(tasks);
     };
     badges.appendChild(rankBadge);
 
-    const dueBadge = el("span","badge", t.deadline ? `Due: ${t.deadline}` : "Add due date");
-    dueBadge.style.cursor="pointer";
+    const dueBadge = el("span", "badge", t.deadline ? `Due: ${t.deadline}` : "Add due date");
+    dueBadge.style.cursor = "pointer";
     dueBadge.onclick = () => {
       const next = prompt("Deadline (YYYY-MM-DD) or blank to remove:", t.deadline || "");
       if (next === null) return;
       t.deadline = next.trim();
-      setTasks(DATE_KEY, tasks);;
+      setTasks(DATE_KEY, tasks);
       render(tasks);
     };
     badges.appendChild(dueBadge);
 
-    // UI delete confirm (two-step)
-    const trash = el("button","trash","×");
+    const trash = el("button", "trash", "×");
     trash.type = "button";
-
     trash.onclick = () => {
-      const wrap = el("div","confirm-wrap");
-      const confirmBtn = el("button","confirm-btn","Confirm");
-      const cancelBtn  = el("button","cancel-btn","Cancel");
+      const wrap = el("div", "confirm-wrap");
+      const confirmBtn = el("button", "confirm-btn", "Confirm");
+      const cancelBtn = el("button", "cancel-btn", "Cancel");
       confirmBtn.type = cancelBtn.type = "button";
-
       confirmBtn.onclick = () => {
         tasks = tasks.filter(x => x.id !== t.id);
-        setTasks(DATE_KEY, tasks);;
+        setTasks(DATE_KEY, tasks);
         render(tasks);
       };
       cancelBtn.onclick = () => render(tasks);
-
       wrap.append(confirmBtn, cancelBtn);
       row.replaceChild(wrap, trash);
     };
 
-    const mid = el("div","");
-    mid.style.flex="1";
-    mid.style.display="flex";
-    mid.style.flexDirection="column";
-    mid.style.gap="8px";
+    const mid = el("div", "");
+    mid.style.flex = "1";
+    mid.style.display = "flex";
+    mid.style.flexDirection = "column";
+    mid.style.gap = "8px";
     mid.append(text, badges);
 
     row.append(check, mid, trash);
     list.appendChild(row);
   }
-
   updateStats(tasks);
 }
 
 let tasks = getTasks(DATE_KEY);
 render(tasks);
 
-form.addEventListener("submit",(e)=>{
+form.addEventListener("submit", (e) => {
   e.preventDefault();
   const v = input.value.trim();
   if (!v) return;
 
-  const rank = parseInt(rankInput.value || "2", 10); // default medium if blank
+  // FIX: validate priority selection; reject if none chosen
+  const rawRank = rankInput.value;
+  if (!rawRank) {
+    rankInput.focus();
+    rankInput.style.borderColor = "#c33";
+    setTimeout(() => rankInput.style.borderColor = "", 1500);
+    return;
+  }
+  const rank = parseInt(rawRank, 10);
   const deadline = deadlineInput.value || "";
 
   tasks = [{
@@ -229,15 +211,15 @@ form.addEventListener("submit",(e)=>{
   }, ...tasks];
 
   input.value = "";
+  rankInput.value = "";
   deadlineInput.value = "";
-
-  setTasks(DATE_KEY, tasks);;
+  setTasks(DATE_KEY, tasks);
   render(tasks);
 });
 
-clearBtn.addEventListener("click",()=>{
+clearBtn.addEventListener("click", () => {
   if (!confirm("Clear tasks for this day?")) return;
   tasks = [];
-  setTasks(DATE_KEY, tasks);;
+  setTasks(DATE_KEY, tasks);
   render(tasks);
 });
