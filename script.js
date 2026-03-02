@@ -160,7 +160,7 @@ function render(tasks) {
       const cancelBtn = el("button", "cancel-btn", "Cancel");
       confirmBtn.type = cancelBtn.type = "button";
       confirmBtn.onclick = () => {
-        tasks = tasks.filter(x => x.id !== t.id);
+        tasks = getTasks(DATE_KEY).filter(x => x.id !== t.id);
         setTasks(DATE_KEY, tasks);
         render(tasks);
       };
