@@ -1,4 +1,61 @@
-const STORAGE_KEY = "daily-focus:by-date:v1";
+const STORE_KEY = "daily-focus:data:v1";
+const SCHEMA_VERSION = 1;
+
+function now() { return Date.now(); }
+function pad(n){ return String(n).padStart(2,"0"); }
+
+function todayKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function getDateKeyFromURL(){
+  const q = new URLSearchParams(location.search);
+  return q.get("date") || todayKey();
+}
+
+function emptyStore() {
+  return { meta: { schema: SCHEMA_VERSION, updatedAt: now() }, days: {} };
+}
+
+function loadStore() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return emptyStore();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return emptyStore();
+    if (!parsed.days || typeof parsed.days !== "object") parsed.days = {};
+    if (!parsed.meta || typeof parsed.meta !== "object") parsed.meta = { schema: SCHEMA_VERSION };
+    return parsed;
+  } catch {
+    return emptyStore();
+  }
+}
+
+function saveStore(store) {
+  store.meta = store.meta || {};
+  store.meta.schema = SCHEMA_VERSION;
+  store.meta.updatedAt = now();
+  localStorage.setItem(STORE_KEY, JSON.stringify(store));
+}
+
+function getDay(store, dateKey) {
+  store.days[dateKey] = store.days[dateKey] || { tasks: [] };
+  store.days[dateKey].tasks = store.days[dateKey].tasks || [];
+  return store.days[dateKey];
+}
+
+function getTasks(dateKey) {
+  const store = loadStore();
+  return getDay(store, dateKey).tasks;
+}
+
+function setTasks(dateKey, tasks) {
+  const store = loadStore();
+  getDay(store, dateKey).tasks = tasks;
+  saveStore(store);
+}
+// ===== End Storage =====
 
 const list = document.getElementById("task-list");
 const form = document.getElementById("task-form");
@@ -19,23 +76,6 @@ function getDateKeyFromURL(){
   return q.get("date") || todayKey();
 }
 const DATE_KEY = getDateKeyFromURL();
-
-function loadAll() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {}; }
-  catch { return {}; }
-}
-function saveAll(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-function loadTasksForDay(dateKey){
-  const data = loadAll();
-  return Array.isArray(data[dateKey]) ? data[dateKey] : [];
-}
-function saveTasksForDay(dateKey, tasks){
-  const data = loadAll();
-  data[dateKey] = tasks;
-  saveAll(data);
-}
 
 function updateStats(tasks) {
   const total = tasks.length;
