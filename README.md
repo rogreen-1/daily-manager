@@ -8,6 +8,6 @@
 
 - HTML
 - CSS
-- Vanilla JavaScript
-- LocalStorage (for task persistence)
+- JavaScript
+- LocalStorage
 - GitHub Pages
