@@ -1,24 +1,8 @@
-# Daily Focus
-
-A minimal, elegant daily task manager built with GitHub Pages.
-
-## Purpose
-
-This is my personal daily execution system.
-Simple.
-Intentional.
-Distraction-free.
+# Daily Task Management Tool
 
 ## Live Site
 
 (https://rogreen-1.github.io/daily-manager/)
-
-## Philosophy
-
-- Focus on 3–5 important tasks
-- Complete before optimizing
-- Track progress daily
-- Keep it visually calm
 
 ## Built With
 
