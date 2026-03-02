@@ -6,11 +6,11 @@
   <title>Daily Task Manager</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-  <nav class="nav">
-  <a class="navlink" href="./calendar.html">Calendar</a>
-  <a class="navlink" href="./index.html">Today</a>
-</nav>
 <body>
+  <nav class="nav">
+    <a class="navlink" href="./calendar.html">Calendar</a>
+    <a class="navlink" href="./index.html">Today</a>
+  </nav>
   <main class="page">
     <section class="card">
       <header class="header">
@@ -18,30 +18,23 @@
           <h1>Daily Task Manager</h1>
           <p class="sub" id="date"></p>
         </div>
-
         <div class="stats" aria-label="completion">
           <div class="pill" id="pct">0%</div>
           <div class="meta" id="meta">0/0 done</div>
         </div>
       </header>
-
-<form id="task-form" class="add" autocomplete="off">
-  <input id="task-input" class="input" placeholder="Add a task…" />
-
-<select id="task-rank" class="select" title="Importance">
-  <option value="" selected disabled>Choose priority</option>
-  <option value="3">High</option>
-  <option value="2">Medium</option>
-  <option value="1">Low</option>
-</select>
-
-  <input id="task-deadline" class="date" type="date" title="Deadline" />
-
-  <button class="btn" type="submit">Add</button>
-</form>
-
+      <form id="task-form" class="add" autocomplete="off">
+        <input id="task-input" class="input" placeholder="Add a task…" />
+        <select id="task-rank" class="select" title="Importance">
+          <option value="" selected disabled>Choose priority</option>
+          <option value="3">High</option>
+          <option value="2">Medium</option>
+          <option value="1">Low</option>
+        </select>
+        <input id="task-deadline" class="date" type="date" title="Deadline" />
+        <button class="btn" type="submit">Add</button>
+      </form>
       <ul id="task-list" class="list"></ul>
-
       <footer class="footer">
         <button id="clear" class="link">Clear today</button>
         <span class="dot">•</span>
@@ -49,11 +42,10 @@
       </footer>
     </section>
   </main>
-
   <script src="script.js"></script>
   <script>
     document.getElementById("date").textContent =
-      new Date().toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric" });
+      new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
   </script>
 </body>
 </html>
