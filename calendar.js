@@ -1,4 +1,3 @@
-// ===== Storage (single source of truth) =====
 const STORE_KEY = "daily-focus:data:v1";
 const SCHEMA_VERSION = 1;
 
@@ -28,6 +27,26 @@ function loadStore() {
 // ===== End Storage =====
 
 
+// ===== Build a deadline-indexed map from all tasks in the store =====
+// Returns an object: { "YYYY-MM-DD": [ ...tasks ] }
+// Tasks without a deadline are indexed under their creation day key.
+function buildDeadlineMap(store) {
+  const map = {};
+
+  for (const [dayKey, dayData] of Object.entries(store.days)) {
+    const tasks = Array.isArray(dayData.tasks) ? dayData.tasks : [];
+    for (const task of tasks) {
+      const key = task.deadline ? task.deadline : dayKey;
+      if (!map[key]) map[key] = [];
+      map[key].push(task);
+    }
+  }
+
+  return map;
+}
+// ===== End deadline map =====
+
+
 // ===== Calendar UI wiring =====
 const monthLabel = document.getElementById("monthLabel");
 const weekdaysEl = document.getElementById("weekdays");
@@ -49,12 +68,9 @@ document.getElementById("next").onclick = () => {
   renderMonth();
 };
 
-function tasksForKey(store, k){
-  return (store.days?.[k]?.tasks && Array.isArray(store.days[k].tasks)) ? store.days[k].tasks : [];
-}
-
 function renderMonth(){
   const store = loadStore();
+  const deadlineMap = buildDeadlineMap(store);
 
   const year = view.getFullYear();
   const month = view.getMonth();
@@ -70,35 +86,35 @@ function renderMonth(){
   // leading blanks (previous month days)
   for (let i = 0; i < startDow; i++){
     const d = new Date(year, month, 1 - (startDow - i));
-    grid.appendChild(dayCell(d, true, store));
+    grid.appendChild(dayCell(d, true, deadlineMap));
   }
 
   // this month
   for (let day = 1; day <= daysInMonth; day++){
     const d = new Date(year, month, day);
-    grid.appendChild(dayCell(d, false, store));
+    grid.appendChild(dayCell(d, false, deadlineMap));
   }
 
   // trailing blanks (next month days)
   while (grid.children.length % 7 !== 0){
-    const idx = grid.children.length - startDow; // days already placed for this month
+    const idx = grid.children.length - startDow;
     const d = new Date(year, month, idx + 1);
-    grid.appendChild(dayCell(d, true, store));
+    grid.appendChild(dayCell(d, true, deadlineMap));
   }
 
-  renderWeek(store);
+  renderWeek(deadlineMap);
 }
 
-function dayCell(dateObj, muted, store){
+function dayCell(dateObj, muted, deadlineMap){
   const todayKeyStr = keyFromDate(new Date());
   const k = keyFromDate(dateObj);
 
-  const tasks = tasksForKey(store, k);
+  const tasks = deadlineMap[k] || [];
   const total = tasks.length;
   const done = tasks.filter(t => t.done).length;
 
-  // Overdue: any unfinished task whose deadline is before today (YYYY-MM-DD compares lexicographically)
-  const overdue = tasks.some(t => !t.done && t.deadline && t.deadline < todayKeyStr);
+  // Overdue: any unfinished task whose deadline has passed
+  const overdue = tasks.some(t => !t.done && k < todayKeyStr);
 
   const cell = document.createElement("div");
   cell.className = `day ${muted ? "muted" : ""} ${k === todayKeyStr ? "today" : ""} ${overdue ? "overdue" : ""}`;
@@ -112,15 +128,12 @@ function dayCell(dateObj, muted, store){
   if (total > 0) count.textContent = `${done}/${total}`;
 
   cell.append(top, count);
-
-  // Intentionally NO click behavior (calendar is a dashboard)
-
   return cell;
 }
 
-/* --------- WEEK VIEW --------- */
 
-function renderWeek(store){
+// ===== WEEK VIEW =====
+function renderWeek(deadlineMap){
   const weekContainer = document.getElementById("weekView");
   if (!weekContainer) return;
 
@@ -135,7 +148,7 @@ function renderWeek(store){
     d.setDate(start.getDate() + i);
     const k = keyFromDate(d);
 
-    const tasks = tasksForKey(store, k);
+    const tasks = deadlineMap[k] || [];
     const total = tasks.length;
     const done = tasks.filter(t => t.done).length;
 
