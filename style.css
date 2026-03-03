@@ -415,3 +415,53 @@ h1{
   font-size: 14px;
   margin-top: 6px;
 }
+
+.badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.badge-overdue {
+  border-color: #c33;
+  color: #c33;
+}
+
+.overdue-row .text {
+  color: #c33;
+}
+
+.done-wrapper {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.done-toggle {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.done-section {
+  display: none;
+  margin-top: 10px;
+}
+
+.done-section.open {
+  display: block;
+}
