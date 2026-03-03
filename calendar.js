@@ -84,8 +84,6 @@ function renderMonth() {
 
   if (selectedKey) renderPanel(selectedKey, deadlineMap);
   else dayPanel.innerHTML = "";
-
-  renderWeek(deadlineMap);
 }
 
 function dayCell(dateObj, muted, deadlineMap) {
@@ -186,37 +184,6 @@ function renderPanel(key, deadlineMap) {
 
   dayPanel.appendChild(ul);
 }
-
-function renderWeek(deadlineMap) {
-  const weekContainer = document.getElementById("weekView");
-  if (!weekContainer) return;
-  weekContainer.innerHTML = "";
-
-  const today = new Date();
-  const start = new Date(today);
-  start.setDate(today.getDate() - today.getDay());
-
-  for (let i = 0; i < 7; i++) {
-    const d     = new Date(start);
-    d.setDate(start.getDate() + i);
-    const k     = keyFromDate(d);
-    const tasks = deadlineMap[k] || [];
-    const done  = tasks.filter(t => t.done).length;
-
-    const box   = document.createElement("div");
-    box.className = "weekbox";
-
-    const lbl = document.createElement("div");
-    lbl.className   = "weeklabel";
-    lbl.textContent = d.toLocaleDateString(undefined, { weekday:"short" });
-
-    const stats = document.createElement("div");
-    stats.className   = "weekstats";
-    stats.textContent = tasks.length ? `${done}/${tasks.length}` : "-";
-
-    box.append(lbl, stats);
-    weekContainer.appendChild(box);
-  }
 }
 
 renderMonth();
