@@ -15,8 +15,7 @@
     <section class="card">
       <header class="header">
         <div>
-          <h1>Daily Task Manager</h1>
-          <p class="sub" id="date"></p>
+          <h1>Task Manager</h1>
         </div>
         <div class="stats" aria-label="completion">
           <div class="pill" id="pct">0%</div>
@@ -26,7 +25,7 @@
       <form id="task-form" class="add" autocomplete="off">
         <input id="task-input" class="input" placeholder="Add a task…" />
         <select id="task-rank" class="select" title="Importance">
-          <option value="" selected disabled>Choose priority</option>
+          <option value="" selected disabled>Priority</option>
           <option value="3">High</option>
           <option value="2">Medium</option>
           <option value="1">Low</option>
@@ -35,17 +34,19 @@
         <button class="btn" type="submit">Add</button>
       </form>
       <ul id="task-list" class="list"></ul>
+      <div class="done-wrapper">
+        <button id="done-toggle" class="done-toggle">Completed (0) ▼</button>
+        <div id="done-section" class="done-section">
+          <ul id="done-list" class="list"></ul>
+        </div>
+      </div>
       <footer class="footer">
-        <button id="clear" class="link">Clear today</button>
+        <button id="clear" class="link">Clear all tasks</button>
         <span class="dot">•</span>
         <span class="hint">Saved automatically</span>
       </footer>
     </section>
   </main>
   <script src="script.js"></script>
-  <script>
-    document.getElementById("date").textContent =
-      new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-  </script>
 </body>
 </html>
