@@ -184,6 +184,4 @@ function renderPanel(key, deadlineMap) {
 
   dayPanel.appendChild(ul);
 }
-}
-
 renderMonth();
