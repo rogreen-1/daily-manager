@@ -1,3 +1,4 @@
+// ===== Storage =====
 const STORE_KEY = "daily-focus:data:v2";
 const SCHEMA_VERSION = 2;
 
@@ -33,6 +34,7 @@ function setTasks(tasks) {
   store.tasks = tasks;
   saveStore(store);
 }
+// ===== End Storage =====
 
 // ===== DOM refs =====
 const list          = document.getElementById("task-list");
@@ -80,13 +82,13 @@ function buildRow(t, tasks) {
   const isOverdue = !t.done && t.deadline < today;
   const row       = el("li", `row ${t.done ? "done" : ""} ${isOverdue ? "overdue-row" : ""}`);
 
-  const check     = el("button", "check", t.done ? "✓" : "");
-  check.type      = "button";
-  check.onclick   = () => { t.done = !t.done; setTasks(tasks); render(tasks); };
+  const check   = el("button", "check", t.done ? "✓" : "");
+  check.type    = "button";
+  check.onclick = () => { t.done = !t.done; setTasks(tasks); render(tasks); };
 
-  const text      = el("button", "text", t.text);
-  text.type       = "button";
-  text.onclick    = () => {
+  const text    = el("button", "text", t.text);
+  text.type     = "button";
+  text.onclick  = () => {
     const next = prompt("Edit task:", t.text);
     if (next === null) return;
     const trimmed = next.trim();
@@ -158,16 +160,20 @@ function render(tasks) {
   if (done.length === 0) doneList.appendChild(el("li", "empty", "No completed tasks yet."));
   else for (const t of done) doneList.appendChild(buildRow(t, tasks));
 
-  doneToggle.textContent = `Completed (${done.length}) ${doneSection.open ? "▲" : "▼"}`;
+  const isOpen = doneSection.classList.contains("open");
+  doneToggle.textContent = `Completed (${done.length}) ${isOpen ? "▲" : "▼"}`;
   updateStats(tasks);
 }
 
+// ===== Completed section toggle =====
 doneToggle.addEventListener("click", () => {
-  doneSection.open = !doneSection.open;
+  doneSection.classList.toggle("open");
+  const isOpen = doneSection.classList.contains("open");
   const done = getTasks().filter(t => t.done).length;
-  doneToggle.textContent = `Completed (${done}) ${doneSection.open ? "▲" : "▼"}`;
+  doneToggle.textContent = `Completed (${done}) ${isOpen ? "▲" : "▼"}`;
 });
 
+// ===== Form submit =====
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   const v = input.value.trim();
@@ -193,9 +199,11 @@ form.addEventListener("submit", (e) => {
   setTasks(tasks); render(tasks);
 });
 
+// ===== Clear all =====
 clearBtn.addEventListener("click", () => {
   if (!confirm("Clear all tasks?")) return;
   setTasks([]); render([]);
 });
 
+// ===== Init =====
 render(getTasks());
