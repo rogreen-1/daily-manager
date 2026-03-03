@@ -201,6 +201,13 @@ form.addEventListener("submit", (e) => {
   const rank = parseInt(rawRank, 10);
   const deadline = deadlineInput.value || "";
 
+  // Reject if deadline is in the past
+  if (deadline && deadline < todayKey()) {
+    deadlineInput.style.borderColor = "#c33";
+    setTimeout(() => deadlineInput.style.borderColor = "", 1500);
+    return;
+  }
+
   tasks = [{
     id: crypto.randomUUID(),
     text: v,
