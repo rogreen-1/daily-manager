@@ -36,6 +36,82 @@ function setTasks(tasks) {
 }
 // ===== End Storage =====
 
+// ===== Recurring helpers =====
+function nextDeadline(deadline, repeat) {
+  const d = new Date(deadline + "T00:00:00");
+  if (repeat === "daily")   d.setDate(d.getDate() + 1);
+  if (repeat === "weekly")  d.setDate(d.getDate() + 7);
+  if (repeat === "monthly") d.setMonth(d.getMonth() + 1);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function spawnRecurrence(t) {
+  return {
+    id:        crypto.randomUUID(),
+    text:      t.text,
+    done:      false,
+    rank:      t.rank,
+    deadline:  nextDeadline(t.deadline, t.repeat),
+    repeat:    t.repeat,
+    createdAt: Date.now()
+  };
+}
+// ===== End recurring helpers =====
+
+// ===== ICS export =====
+function toICSDate(dateStr) {
+  // YYYYMMDD for all-day events
+  return dateStr.replace(/-/g, "");
+}
+
+function exportICS(tasks) {
+  const pending = tasks.filter(t => !t.done && t.deadline);
+  if (pending.length === 0) { alert("No pending tasks to export."); return; }
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Daily Focus//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH"
+  ];
+
+  for (const t of pending) {
+    const uid      = t.id + "@daily-focus";
+    const dtstart  = toICSDate(t.deadline);
+    const dtend    = toICSDate(t.deadline);
+    const created  = new Date(t.createdAt).toISOString().replace(/[-:]/g,"").split(".")[0] + "Z";
+    const rankStr  = t.rank === 3 ? "High" : t.rank === 2 ? "Medium" : "Low";
+    const repeatStr = t.repeat ? ` [Repeats ${t.repeat}]` : "";
+    const summary  = t.text.replace(/\n/g, "\\n");
+
+    lines.push("BEGIN:VEVENT");
+    lines.push(`UID:${uid}`);
+    lines.push(`DTSTAMP:${created}`);
+    lines.push(`DTSTART;VALUE=DATE:${dtstart}`);
+    lines.push(`DTEND;VALUE=DATE:${dtend}`);
+    lines.push(`SUMMARY:${summary}${repeatStr}`);
+    lines.push(`DESCRIPTION:Priority: ${rankStr}. Added: ${new Date(t.createdAt).toLocaleDateString()}.`);
+    lines.push(`PRIORITY:${t.rank === 3 ? 1 : t.rank === 2 ? 5 : 9}`);
+    if (t.repeat) {
+      const freq = t.repeat === "daily" ? "DAILY" : t.repeat === "weekly" ? "WEEKLY" : "MONTHLY";
+      lines.push(`RRULE:FREQ=${freq}`);
+    }
+    lines.push("END:VEVENT");
+  }
+
+  lines.push("END:VCALENDAR");
+
+  const blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "daily-focus-tasks.ics";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+// ===== End ICS export =====
+
 // ===== DOM refs =====
 const list          = document.getElementById("task-list");
 const doneList      = document.getElementById("done-list");
@@ -43,9 +119,11 @@ const form          = document.getElementById("task-form");
 const input         = document.getElementById("task-input");
 const rankInput     = document.getElementById("task-rank");
 const deadlineInput = document.getElementById("task-deadline");
+const repeatInput   = document.getElementById("task-repeat");
 const pctEl         = document.getElementById("pct");
 const metaEl        = document.getElementById("meta");
 const clearBtn      = document.getElementById("clear");
+const exportBtn     = document.getElementById("export-ics");
 const doneToggle    = document.getElementById("done-toggle");
 const doneSection   = document.getElementById("done-section");
 
@@ -75,6 +153,16 @@ function updateStats(tasks) {
   pctEl.textContent  = `${pct}%`;
   metaEl.textContent = `${done}/${total} done`;
 }
+function formatDate(dateStr) {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, {
+    month: "short", day: "numeric", year: "numeric"
+  });
+}
+function formatAdded(ts) {
+  return new Date(ts).toLocaleDateString(undefined, {
+    month: "short", day: "numeric", year: "numeric"
+  });
+}
 
 // ===== Build row =====
 function buildRow(t, tasks) {
@@ -84,11 +172,20 @@ function buildRow(t, tasks) {
 
   const check   = el("button", "check", t.done ? "✓" : "");
   check.type    = "button";
-  check.onclick = () => { t.done = !t.done; setTasks(tasks); render(tasks); };
+  check.onclick = () => {
+    t.done = !t.done;
+    let updated = getTasks().map(x => x.id === t.id ? t : x);
+    // Spawn next recurrence if recurring and just completed
+    if (t.done && t.repeat) {
+      updated = [spawnRecurrence(t), ...updated];
+    }
+    setTasks(updated);
+    render(updated);
+  };
 
-  const text    = el("button", "text", t.text);
-  text.type     = "button";
-  text.onclick  = () => {
+  const text   = el("button", "text", t.text);
+  text.type    = "button";
+  text.onclick = () => {
     const next = prompt("Edit task:", t.text);
     if (next === null) return;
     const trimmed = next.trim();
@@ -96,6 +193,12 @@ function buildRow(t, tasks) {
     t.text = trimmed;
     setTasks(tasks); render(tasks);
   };
+
+  // Date meta row: Added + Due
+  const dateMeta = el("div", "task-dates");
+  const addedSpan = el("span", "task-date-item", `Added: ${formatAdded(t.createdAt)}`);
+  const dueSpan   = el("span", `task-date-item ${isOverdue ? "date-overdue" : ""}`, `Due: ${formatDate(t.deadline)}`);
+  dateMeta.append(addedSpan, dueSpan);
 
   const badges    = el("div", "badges");
   const rankBadge = el("span", "badge");
@@ -111,19 +214,12 @@ function buildRow(t, tasks) {
     else return;
     setTasks(tasks); render(tasks);
   };
+  badges.appendChild(rankBadge);
 
-  const dueBadge        = el("span", `badge ${isOverdue ? "badge-overdue" : ""}`, `Due: ${t.deadline}`);
-  dueBadge.style.cursor = "pointer";
-  dueBadge.onclick      = () => {
-    const next = prompt("New deadline (YYYY-MM-DD):", t.deadline);
-    if (next === null) return;
-    const trimmed = next.trim();
-    if (!trimmed) return;
-    if (trimmed < todayKey()) { alert("Deadline cannot be in the past."); return; }
-    t.deadline = trimmed;
-    setTasks(tasks); render(tasks);
-  };
-  badges.append(rankBadge, dueBadge);
+  if (t.repeat) {
+    const repeatBadge = el("span", "badge", `↻ ${t.repeat}`);
+    badges.appendChild(repeatBadge);
+  }
 
   const trash     = el("button", "trash", "×");
   trash.type      = "button";
@@ -142,7 +238,7 @@ function buildRow(t, tasks) {
   };
 
   const mid = el("div", "mid");
-  mid.append(text, badges);
+  mid.append(text, dateMeta, badges);
   row.append(check, mid, trash);
   return row;
 }
@@ -192,12 +288,25 @@ form.addEventListener("submit", (e) => {
     return;
   }
 
+  const repeat = repeatInput.value || null;
+
   let tasks = getTasks();
-  tasks = [{ id: crypto.randomUUID(), text: v, done: false,
-    rank: parseInt(rawRank, 10), deadline, createdAt: Date.now() }, ...tasks];
-  input.value = ""; rankInput.value = ""; deadlineInput.value = "";
+  tasks = [{
+    id:        crypto.randomUUID(),
+    text:      v,
+    done:      false,
+    rank:      parseInt(rawRank, 10),
+    deadline,
+    repeat,
+    createdAt: Date.now()
+  }, ...tasks];
+
+  input.value = ""; rankInput.value = ""; deadlineInput.value = ""; repeatInput.value = "";
   setTasks(tasks); render(tasks);
 });
+
+// ===== Export ICS =====
+exportBtn.addEventListener("click", () => exportICS(getTasks()));
 
 // ===== Clear all =====
 clearBtn.addEventListener("click", () => {
