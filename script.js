@@ -1,6 +1,7 @@
 // ===== Storage =====
 const STORE_KEY = "daily-focus:data:v2";
 const SCHEMA_VERSION = 2;
+const APPS_SCRIPT_URL = "YOUR_WEB_APP_URL_HERE"; // //https://script.google.com/macros/s/AKfycbwVtDty4rlH40c4INa5oMwIbBjjwwTQBGlYcYPIpg61EDPSAmVxO5qKfO68mLaTiis5/exec
 
 function now() { return Date.now(); }
 function pad(n) { return String(n).padStart(2, "0"); }
@@ -36,6 +37,21 @@ function setTasks(tasks) {
 }
 // ===== End Storage =====
 
+// ===== Google Calendar Sync =====
+function syncToCalendar(tasks) {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "YOUR_WEB_APP_URL_HERE") {
+    console.warn("Apps Script URL not configured.");
+    return;
+  }
+  fetch(APPS_SCRIPT_URL, {
+    method:  "POST",
+    mode:    "no-cors",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ tasks })
+  }).catch(err => console.error("Sync failed:", err));
+}
+// ===== End Google Calendar Sync =====
+
 // ===== Recurring helpers =====
 function nextDeadline(deadline, repeat) {
   const d = new Date(deadline + "T00:00:00");
@@ -44,7 +60,6 @@ function nextDeadline(deadline, repeat) {
   if (repeat === "monthly") d.setMonth(d.getMonth() + 1);
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
-
 function spawnRecurrence(t) {
   return {
     id:        crypto.randomUUID(),
@@ -56,14 +71,12 @@ function spawnRecurrence(t) {
     createdAt: Date.now()
   };
 }
-// ===== End recurring helpers =====
+// ===== End Recurring helpers =====
 
-// ===== ICS export =====
+// ===== ICS Export =====
 function toICSDate(dateStr) {
-  // YYYYMMDD for all-day events
   return dateStr.replace(/-/g, "");
 }
-
 function exportICS(tasks) {
   const pending = tasks.filter(t => !t.done && t.deadline);
   if (pending.length === 0) { alert("No pending tasks to export."); return; }
@@ -79,18 +92,16 @@ function exportICS(tasks) {
   for (const t of pending) {
     const uid      = t.id + "@daily-focus";
     const dtstart  = toICSDate(t.deadline);
-    const dtend    = toICSDate(t.deadline);
     const created  = new Date(t.createdAt).toISOString().replace(/[-:]/g,"").split(".")[0] + "Z";
     const rankStr  = t.rank === 3 ? "High" : t.rank === 2 ? "Medium" : "Low";
     const repeatStr = t.repeat ? ` [Repeats ${t.repeat}]` : "";
-    const summary  = t.text.replace(/\n/g, "\\n");
 
     lines.push("BEGIN:VEVENT");
     lines.push(`UID:${uid}`);
     lines.push(`DTSTAMP:${created}`);
     lines.push(`DTSTART;VALUE=DATE:${dtstart}`);
-    lines.push(`DTEND;VALUE=DATE:${dtend}`);
-    lines.push(`SUMMARY:${summary}${repeatStr}`);
+    lines.push(`DTEND;VALUE=DATE:${dtstart}`);
+    lines.push(`SUMMARY:${t.text}${repeatStr}`);
     lines.push(`DESCRIPTION:Priority: ${rankStr}. Added: ${new Date(t.createdAt).toLocaleDateString()}.`);
     lines.push(`PRIORITY:${t.rank === 3 ? 1 : t.rank === 2 ? 5 : 9}`);
     if (t.repeat) {
@@ -110,7 +121,7 @@ function exportICS(tasks) {
   a.click();
   URL.revokeObjectURL(url);
 }
-// ===== End ICS export =====
+// ===== End ICS Export =====
 
 // ===== DOM refs =====
 const list          = document.getElementById("task-list");
@@ -175,11 +186,11 @@ function buildRow(t, tasks) {
   check.onclick = () => {
     t.done = !t.done;
     let updated = getTasks().map(x => x.id === t.id ? t : x);
-    // Spawn next recurrence if recurring and just completed
     if (t.done && t.repeat) {
       updated = [spawnRecurrence(t), ...updated];
     }
     setTasks(updated);
+    syncToCalendar(updated);
     render(updated);
   };
 
@@ -191,11 +202,13 @@ function buildRow(t, tasks) {
     const trimmed = next.trim();
     if (!trimmed) return;
     t.text = trimmed;
-    setTasks(tasks); render(tasks);
+    setTasks(tasks);
+    syncToCalendar(tasks);
+    render(tasks);
   };
 
-  // Date meta row: Added + Due
-  const dateMeta = el("div", "task-dates");
+  // Date meta row
+  const dateMeta  = el("div", "task-dates");
   const addedSpan = el("span", "task-date-item", `Added: ${formatAdded(t.createdAt)}`);
   const dueSpan   = el("span", `task-date-item ${isOverdue ? "date-overdue" : ""}`, `Due: ${formatDate(t.deadline)}`);
   dateMeta.append(addedSpan, dueSpan);
@@ -212,14 +225,16 @@ function buildRow(t, tasks) {
     else if (v.startsWith("m")) t.rank = 2;
     else if (v.startsWith("l")) t.rank = 1;
     else return;
-    setTasks(tasks); render(tasks);
+    setTasks(tasks);
+    syncToCalendar(tasks);
+    render(tasks);
   };
-  badges.appendChild(rankBadge);
 
   if (t.repeat) {
     const repeatBadge = el("span", "badge", `↻ ${t.repeat}`);
     badges.appendChild(repeatBadge);
   }
+  badges.appendChild(rankBadge);
 
   const trash     = el("button", "trash", "×");
   trash.type      = "button";
@@ -230,7 +245,9 @@ function buildRow(t, tasks) {
     confirmBtn.type  = cancelBtn.type = "button";
     confirmBtn.onclick = () => {
       const updated = getTasks().filter(x => x.id !== t.id);
-      setTasks(updated); render(updated);
+      setTasks(updated);
+      syncToCalendar(updated);
+      render(updated);
     };
     cancelBtn.onclick = () => render(tasks);
     wrap.append(confirmBtn, cancelBtn);
@@ -289,7 +306,6 @@ form.addEventListener("submit", (e) => {
   }
 
   const repeat = repeatInput.value || null;
-
   let tasks = getTasks();
   tasks = [{
     id:        crypto.randomUUID(),
@@ -302,7 +318,9 @@ form.addEventListener("submit", (e) => {
   }, ...tasks];
 
   input.value = ""; rankInput.value = ""; deadlineInput.value = ""; repeatInput.value = "";
-  setTasks(tasks); render(tasks);
+  setTasks(tasks);
+  syncToCalendar(tasks);
+  render(tasks);
 });
 
 // ===== Export ICS =====
@@ -311,7 +329,9 @@ exportBtn.addEventListener("click", () => exportICS(getTasks()));
 // ===== Clear all =====
 clearBtn.addEventListener("click", () => {
   if (!confirm("Clear all tasks?")) return;
-  setTasks([]); render([]);
+  setTasks([]);
+  syncToCalendar([]);
+  render([]);
 });
 
 // ===== Init =====
