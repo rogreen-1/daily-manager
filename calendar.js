@@ -1,123 +1,104 @@
-const STORE_KEY = "daily-focus:data:v1";
-const SCHEMA_VERSION = 1;
+const STORE_KEY = "daily-focus:data:v2";
+const SCHEMA_VERSION = 2;
 
-function now(){ return Date.now(); }
-function pad(n){ return String(n).padStart(2,"0"); }
-function keyFromDate(d){
+function now() { return Date.now(); }
+function pad(n) { return String(n).padStart(2, "0"); }
+function keyFromDate(d) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
+function todayKey() { return keyFromDate(new Date()); }
 
 function emptyStore() {
-  return { meta: { schema: SCHEMA_VERSION, updatedAt: now() }, days: {} };
+  return { meta: { schema: SCHEMA_VERSION, updatedAt: now() }, tasks: [] };
 }
-
 function loadStore() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return emptyStore();
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return emptyStore();
-    if (!parsed.days || typeof parsed.days !== "object") parsed.days = {};
-    if (!parsed.meta || typeof parsed.meta !== "object") parsed.meta = { schema: SCHEMA_VERSION };
+    if (!Array.isArray(parsed.tasks)) parsed.tasks = [];
+    if (!parsed.meta) parsed.meta = { schema: SCHEMA_VERSION };
     return parsed;
-  } catch {
-    return emptyStore();
-  }
+  } catch { return emptyStore(); }
 }
-// ===== End Storage =====
+function getTasks() { return loadStore().tasks; }
 
-
-// ===== Build a deadline-indexed map from all tasks in the store =====
-// Returns an object: { "YYYY-MM-DD": [ ...tasks ] }
-// Tasks without a deadline are indexed under their creation day key.
-function buildDeadlineMap(store) {
+// ===== Deadline map: { "YYYY-MM-DD": [...tasks] } =====
+function buildDeadlineMap(tasks) {
   const map = {};
-
-  for (const [dayKey, dayData] of Object.entries(store.days)) {
-    const tasks = Array.isArray(dayData.tasks) ? dayData.tasks : [];
-    for (const task of tasks) {
-      const key = task.deadline ? task.deadline : dayKey;
-      if (!map[key]) map[key] = [];
-      map[key].push(task);
-    }
+  for (const task of tasks) {
+    if (!task.deadline) continue;
+    if (!map[task.deadline]) map[task.deadline] = [];
+    map[task.deadline].push(task);
   }
-
   return map;
 }
-// ===== End deadline map =====
 
-
-// ===== Calendar UI wiring =====
+// ===== DOM =====
 const monthLabel = document.getElementById("monthLabel");
 const weekdaysEl = document.getElementById("weekdays");
-const grid = document.getElementById("grid");
+const grid       = document.getElementById("grid");
+const dayPanel   = document.getElementById("dayPanel");
 
-const weekdayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-weekdaysEl.innerHTML = weekdayNames.map(w => `<div>${w}</div>`).join("");
+weekdaysEl.innerHTML = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+  .map(w => `<div>${w}</div>`).join("");
 
 let view = new Date();
 view.setDate(1);
+let selectedKey = null;
 
 document.getElementById("prev").onclick = () => {
   view.setMonth(view.getMonth() - 1);
+  selectedKey = null;
   renderMonth();
 };
-
 document.getElementById("next").onclick = () => {
   view.setMonth(view.getMonth() + 1);
+  selectedKey = null;
   renderMonth();
 };
 
-function renderMonth(){
-  const store = loadStore();
-  const deadlineMap = buildDeadlineMap(store);
-
-  const year = view.getFullYear();
+function renderMonth() {
+  const deadlineMap = buildDeadlineMap(getTasks());
+  const year  = view.getFullYear();
   const month = view.getMonth();
 
   monthLabel.textContent = view.toLocaleDateString(undefined, { month:"long", year:"numeric" });
 
-  const first = new Date(year, month, 1);
-  const startDow = first.getDay();
+  const startDow    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  grid.innerHTML    = "";
 
-  grid.innerHTML = "";
-
-  // leading blanks (previous month days)
-  for (let i = 0; i < startDow; i++){
+  for (let i = 0; i < startDow; i++) {
     const d = new Date(year, month, 1 - (startDow - i));
     grid.appendChild(dayCell(d, true, deadlineMap));
   }
-
-  // this month
-  for (let day = 1; day <= daysInMonth; day++){
-    const d = new Date(year, month, day);
-    grid.appendChild(dayCell(d, false, deadlineMap));
+  for (let day = 1; day <= daysInMonth; day++) {
+    grid.appendChild(dayCell(new Date(year, month, day), false, deadlineMap));
   }
-
-  // trailing blanks (next month days)
-  while (grid.children.length % 7 !== 0){
+  while (grid.children.length % 7 !== 0) {
     const idx = grid.children.length - startDow;
-    const d = new Date(year, month, idx + 1);
-    grid.appendChild(dayCell(d, true, deadlineMap));
+    grid.appendChild(dayCell(new Date(year, month, idx + 1), true, deadlineMap));
   }
+
+  if (selectedKey) renderPanel(selectedKey, deadlineMap);
+  else dayPanel.innerHTML = "";
 
   renderWeek(deadlineMap);
 }
 
-function dayCell(dateObj, muted, deadlineMap){
-  const todayKeyStr = keyFromDate(new Date());
-  const k = keyFromDate(dateObj);
-
-  const tasks = deadlineMap[k] || [];
-  const total = tasks.length;
-  const done = tasks.filter(t => t.done).length;
-
-  // Overdue: any unfinished task whose deadline has passed
-  const overdue = tasks.some(t => !t.done && k < todayKeyStr);
+function dayCell(dateObj, muted, deadlineMap) {
+  const today   = todayKey();
+  const k       = keyFromDate(dateObj);
+  const tasks   = deadlineMap[k] || [];
+  const done    = tasks.filter(t => t.done).length;
+  const overdue = tasks.some(t => !t.done && k < today);
 
   const cell = document.createElement("div");
-  cell.className = `day ${muted ? "muted" : ""} ${k === todayKeyStr ? "today" : ""} ${overdue ? "overdue" : ""}`;
+  cell.className = ["day", muted ? "muted" : "", k === today ? "today" : "",
+    overdue ? "overdue" : "", k === selectedKey ? "selected" : ""]
+    .filter(Boolean).join(" ");
 
   const top = document.createElement("div");
   top.className = "daynum";
@@ -125,45 +106,115 @@ function dayCell(dateObj, muted, deadlineMap){
 
   const count = document.createElement("div");
   count.className = "count";
-  if (total > 0) count.textContent = `${done}/${total}`;
+  if (tasks.length > 0) count.textContent = `${done}/${tasks.length}`;
 
   cell.append(top, count);
+
+  if (!muted) {
+    cell.style.cursor = "pointer";
+    cell.onclick = () => {
+      selectedKey = selectedKey === k ? null : k;
+      renderMonth();
+    };
+  }
   return cell;
 }
 
+function renderPanel(key, deadlineMap) {
+  const tasks   = deadlineMap[key] || [];
+  const today   = todayKey();
+  const isPast  = key < today;
 
-// ===== WEEK VIEW =====
-function renderWeek(deadlineMap){
+  const label = new Date(key + "T00:00:00").toLocaleDateString(undefined, {
+    weekday:"long", month:"long", day:"numeric"
+  });
+
+  dayPanel.innerHTML = "";
+
+  const header = document.createElement("div");
+  header.className = "panel-header";
+
+  const title = document.createElement("span");
+  title.className   = "panel-title";
+  title.textContent = label;
+
+  const close = document.createElement("button");
+  close.className   = "panel-close";
+  close.textContent = "✕";
+  close.type        = "button";
+  close.onclick     = () => { selectedKey = null; renderMonth(); };
+
+  header.append(title, close);
+  dayPanel.appendChild(header);
+
+  if (tasks.length === 0) {
+    const empty = document.createElement("p");
+    empty.className   = "panel-empty";
+    empty.textContent = "No tasks due this day.";
+    dayPanel.appendChild(empty);
+    return;
+  }
+
+  const ul = document.createElement("ul");
+  ul.className = "panel-list";
+
+  [...tasks]
+    .sort((a, b) => a.done !== b.done ? (a.done ? 1 : -1) : b.rank - a.rank)
+    .forEach(t => {
+      const li = document.createElement("li");
+      li.className = `panel-row ${t.done ? "done" : ""} ${!t.done && isPast ? "overdue-row" : ""}`;
+
+      const check = document.createElement("span");
+      check.className   = `panel-check ${t.done ? "checked" : ""}`;
+      check.textContent = t.done ? "✓" : "";
+
+      const text = document.createElement("span");
+      text.className   = "panel-text";
+      text.textContent = t.text;
+
+      const rank = document.createElement("span");
+      rank.className = "badge";
+      rank.innerHTML = `Priority: <span class="rank">${t.rank === 3 ? "High" : t.rank === 2 ? "Med" : "Low"}</span>`;
+
+      const right = document.createElement("div");
+      right.className = "panel-right";
+      right.appendChild(rank);
+
+      li.append(check, text, right);
+      ul.appendChild(li);
+    });
+
+  dayPanel.appendChild(ul);
+}
+
+function renderWeek(deadlineMap) {
   const weekContainer = document.getElementById("weekView");
   if (!weekContainer) return;
-
   weekContainer.innerHTML = "";
 
   const today = new Date();
   const start = new Date(today);
-  start.setDate(today.getDate() - today.getDay()); // Sunday start
+  start.setDate(today.getDate() - today.getDay());
 
-  for (let i = 0; i < 7; i++){
-    const d = new Date(start);
+  for (let i = 0; i < 7; i++) {
+    const d     = new Date(start);
     d.setDate(start.getDate() + i);
-    const k = keyFromDate(d);
-
+    const k     = keyFromDate(d);
     const tasks = deadlineMap[k] || [];
-    const total = tasks.length;
-    const done = tasks.filter(t => t.done).length;
+    const done  = tasks.filter(t => t.done).length;
 
-    const box = document.createElement("div");
+    const box   = document.createElement("div");
     box.className = "weekbox";
 
-    const label = document.createElement("div");
-    label.className = "weeklabel";
-    label.textContent = d.toLocaleDateString(undefined, { weekday:"short" });
+    const lbl = document.createElement("div");
+    lbl.className   = "weeklabel";
+    lbl.textContent = d.toLocaleDateString(undefined, { weekday:"short" });
 
     const stats = document.createElement("div");
-    stats.className = "weekstats";
-    stats.textContent = total ? `${done}/${total}` : "-";
+    stats.className   = "weekstats";
+    stats.textContent = tasks.length ? `${done}/${tasks.length}` : "-";
 
-    box.append(label, stats);
+    box.append(lbl, stats);
     weekContainer.appendChild(box);
   }
 }
