@@ -7,6 +7,10 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <nav class="nav">
+    <a class="navlink" href="./index.html">Tasks</a>
+    <a class="navlink" href="./calendar.html">Calendar</a>
+  </nav>
   <main class="page">
     <section class="card">
       <header class="header">
@@ -14,22 +18,17 @@
           <h1>Calendar</h1>
           <p class="sub" id="monthLabel"></p>
         </div>
-        <nav class="nav">
-          <a class="navlink" href="./index.html">Today</a>
-        </nav>
       </header>
-
       <div class="cal-controls">
         <button class="btn-lite" id="prev">←</button>
         <button class="btn-lite" id="next">→</button>
       </div>
-
       <div class="cal-weekdays" id="weekdays"></div>
       <div class="cal-grid" id="grid"></div>
+      <div id="dayPanel" class="day-panel"></div>
       <div class="week-view" id="weekView"></div>
     </section>
   </main>
-
   <script src="calendar.js"></script>
 </body>
 </html>
