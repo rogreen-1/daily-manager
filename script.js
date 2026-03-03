@@ -76,10 +76,41 @@ function spawnRecurrence(t) {
 }
 // ===== End Recurring helpers =====
 
-// ===== ICS Export =====
-function toICSDate(dateStr) {
-  return dateStr.replace(/-/g, "");
+// ===== Missed task handling =====
+function processMissedTasks() {
+  const today = todayKey();
+  let tasks   = getTasks();
+  let changed = false;
+
+  tasks = tasks.map(t => {
+    // If incomplete, daily repeat, and deadline has passed — mark as missed
+    if (!t.done && !t.missed && t.deadline < today) {
+      changed  = true;
+      return { ...t, missed: true };
+    }
+    return t;
+  });
+
+  if (changed) {
+    setTasks(tasks);
+    syncToCalendar(tasks);
+    render(tasks);
+  }
 }
+
+// Midnight watcher — checks every minute if the date has rolled over
+let lastCheckedDate = todayKey();
+setInterval(() => {
+  const current = todayKey();
+  if (current !== lastCheckedDate) {
+    lastCheckedDate = current;
+    processMissedTasks();
+  }
+}, 60 * 1000);
+// ===== End Missed task handling =====
+
+// ===== ICS Export =====
+function toICSDate(dateStr) { return dateStr.replace(/-/g, ""); }
 function exportICS(tasks) {
   const pending = tasks.filter(t => !t.done && t.deadline);
   if (pending.length === 0) { alert("No pending tasks to export."); return; }
@@ -93,10 +124,10 @@ function exportICS(tasks) {
   ];
 
   for (const t of pending) {
-    const uid      = t.id + "@daily-focus";
-    const dtstart  = toICSDate(t.deadline);
-    const created  = new Date(t.createdAt).toISOString().replace(/[-:]/g,"").split(".")[0] + "Z";
-    const rankStr  = t.rank === 3 ? "High" : t.rank === 2 ? "Medium" : "Low";
+    const uid       = t.id + "@daily-focus";
+    const dtstart   = toICSDate(t.deadline);
+    const created   = new Date(t.createdAt).toISOString().replace(/[-:]/g,"").split(".")[0] + "Z";
+    const rankStr   = t.rank === 3 ? "High" : t.rank === 2 ? "Medium" : "Low";
     const repeatStr = t.repeat ? ` [Repeats ${t.repeat}]` : "";
 
     lines.push("BEGIN:VEVENT");
@@ -126,20 +157,46 @@ function exportICS(tasks) {
 }
 // ===== End ICS Export =====
 
+// ===== Weekly stats =====
+function getWeekBounds() {
+  const now   = new Date();
+  const start = new Date(now);
+  start.setDate(now.getDate() - now.getDay());
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  return { start: fmt(start), end: fmt(end) };
+}
+
+function updateStats(tasks) {
+  const { start, end } = getWeekBounds();
+  const weekly = tasks.filter(t => t.deadline >= start && t.deadline <= end);
+  const total  = weekly.length;
+  const done   = weekly.filter(t => t.done).length;
+  const pct    = total === 0 ? 0 : Math.round((done / total) * 100);
+  pctEl.textContent  = `${pct}%`;
+  metaEl.textContent = total === 0 ? "No tasks this week" : `${done}/${total} this week`;
+}
+// ===== End Weekly stats =====
+
 // ===== DOM refs =====
-const list          = document.getElementById("task-list");
-const doneList      = document.getElementById("done-list");
-const form          = document.getElementById("task-form");
-const input         = document.getElementById("task-input");
-const rankInput     = document.getElementById("task-rank");
-const deadlineInput = document.getElementById("task-deadline");
-const repeatInput   = document.getElementById("task-repeat");
-const pctEl         = document.getElementById("pct");
-const metaEl        = document.getElementById("meta");
-const clearBtn      = document.getElementById("clear");
-const exportBtn     = document.getElementById("export-ics");
-const doneToggle    = document.getElementById("done-toggle");
-const doneSection   = document.getElementById("done-section");
+const list           = document.getElementById("task-list");
+const missedList     = document.getElementById("missed-list");
+const missedWrapper  = document.getElementById("missed-wrapper");
+const missedToggle   = document.getElementById("missed-toggle");
+const missedSection  = document.getElementById("missed-section");
+const doneList       = document.getElementById("done-list");
+const form           = document.getElementById("task-form");
+const input          = document.getElementById("task-input");
+const rankInput      = document.getElementById("task-rank");
+const deadlineInput  = document.getElementById("task-deadline");
+const repeatInput    = document.getElementById("task-repeat");
+const pctEl          = document.getElementById("pct");
+const metaEl         = document.getElementById("meta");
+const clearBtn       = document.getElementById("clear");
+const exportBtn      = document.getElementById("export-ics");
+const doneToggle     = document.getElementById("done-toggle");
+const doneSection    = document.getElementById("done-section");
 
 deadlineInput.min = todayKey();
 
@@ -160,13 +217,6 @@ function sortTasks(tasks) {
     return (a.createdAt ?? 0) - (b.createdAt ?? 0);
   });
 }
-function updateStats(tasks) {
-  const total = tasks.length;
-  const done  = tasks.filter(t => t.done).length;
-  const pct   = total === 0 ? 0 : Math.round((done / total) * 100);
-  pctEl.textContent  = `${pct}%`;
-  metaEl.textContent = `${done}/${total} done`;
-}
 function formatDate(dateStr) {
   return new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, {
     month: "short", day: "numeric", year: "numeric"
@@ -179,19 +229,18 @@ function formatAdded(ts) {
 }
 
 // ===== Build row =====
-function buildRow(t, tasks) {
+function buildRow(t, tasks, isMissed = false) {
   const today     = todayKey();
   const isOverdue = !t.done && t.deadline < today;
-  const row       = el("li", `row ${t.done ? "done" : ""} ${isOverdue ? "overdue-row" : ""}`);
+  const row       = el("li", `row ${t.done ? "done" : ""} ${isOverdue ? "overdue-row" : ""} ${isMissed ? "missed-row" : ""}`);
 
   const check   = el("button", "check", t.done ? "✓" : "");
   check.type    = "button";
   check.onclick = () => {
-    t.done = !t.done;
+    t.done   = !t.done;
+    t.missed = t.done ? false : t.missed;
     let updated = getTasks().map(x => x.id === t.id ? t : x);
-    if (t.done && t.repeat) {
-      updated = [spawnRecurrence(t), ...updated];
-    }
+    if (t.done && t.repeat) updated = [spawnRecurrence(t), ...updated];
     setTasks(updated);
     syncToCalendar(updated);
     render(updated);
@@ -205,12 +254,9 @@ function buildRow(t, tasks) {
     const trimmed = next.trim();
     if (!trimmed) return;
     t.text = trimmed;
-    setTasks(tasks);
-    syncToCalendar(tasks);
-    render(tasks);
+    setTasks(tasks); syncToCalendar(tasks); render(tasks);
   };
 
-  // Date meta row
   const dateMeta  = el("div", "task-dates");
   const addedSpan = el("span", "task-date-item", `Added: ${formatAdded(t.createdAt)}`);
   const dueSpan   = el("span", `task-date-item ${isOverdue ? "date-overdue" : ""}`, `Due: ${formatDate(t.deadline)}`);
@@ -228,15 +274,9 @@ function buildRow(t, tasks) {
     else if (v.startsWith("m")) t.rank = 2;
     else if (v.startsWith("l")) t.rank = 1;
     else return;
-    setTasks(tasks);
-    syncToCalendar(tasks);
-    render(tasks);
+    setTasks(tasks); syncToCalendar(tasks); render(tasks);
   };
-
-  if (t.repeat) {
-    const repeatBadge = el("span", "badge", `↻ ${t.repeat}`);
-    badges.appendChild(repeatBadge);
-  }
+  if (t.repeat) badges.appendChild(el("span", "badge", `↻ ${t.repeat}`));
   badges.appendChild(rankBadge);
 
   const trash     = el("button", "trash", "×");
@@ -248,9 +288,7 @@ function buildRow(t, tasks) {
     confirmBtn.type  = cancelBtn.type = "button";
     confirmBtn.onclick = () => {
       const updated = getTasks().filter(x => x.id !== t.id);
-      setTasks(updated);
-      syncToCalendar(updated);
-      render(updated);
+      setTasks(updated); syncToCalendar(updated); render(updated);
     };
     cancelBtn.onclick = () => render(tasks);
     wrap.append(confirmBtn, cancelBtn);
@@ -265,27 +303,45 @@ function buildRow(t, tasks) {
 
 // ===== Render =====
 function render(tasks) {
-  const active = sortTasks(tasks.filter(t => !t.done));
-  const done   = sortTasks(tasks.filter(t => t.done));
+  const today   = todayKey();
+  const active  = sortTasks(tasks.filter(t => !t.done && !t.missed && t.deadline >= today));
+  const missed  = sortTasks(tasks.filter(t => !t.done && t.missed));
+  const done    = sortTasks(tasks.filter(t => t.done));
 
+  // Active
   list.innerHTML = "";
   if (active.length === 0) list.appendChild(el("li", "empty", "No pending tasks."));
-  else for (const t of active) list.appendChild(buildRow(t, tasks));
+  else for (const t of active) list.appendChild(buildRow(t, tasks, false));
 
+  // Missed
+  missedWrapper.style.display = missed.length > 0 ? "block" : "none";
+  missedList.innerHTML = "";
+  for (const t of missed) missedList.appendChild(buildRow(t, tasks, true));
+  const missedOpen = missedSection.classList.contains("open");
+  missedToggle.textContent = `⚠ Missed (${missed.length}) ${missedOpen ? "▲" : "▼"}`;
+
+  // Done
   doneList.innerHTML = "";
   if (done.length === 0) doneList.appendChild(el("li", "empty", "No completed tasks yet."));
-  else for (const t of done) doneList.appendChild(buildRow(t, tasks));
+  else for (const t of done) doneList.appendChild(buildRow(t, tasks, false));
+  const doneOpen = doneSection.classList.contains("open");
+  doneToggle.textContent = `Completed (${done.length}) ${doneOpen ? "▲" : "▼"}`;
 
-  const isOpen = doneSection.classList.contains("open");
-  doneToggle.textContent = `Completed (${done.length}) ${isOpen ? "▲" : "▼"}`;
   updateStats(tasks);
 }
 
-// ===== Completed section toggle =====
+// ===== Toggles =====
+missedToggle.addEventListener("click", () => {
+  missedSection.classList.toggle("open");
+  const missed = getTasks().filter(t => !t.done && t.missed).length;
+  const isOpen = missedSection.classList.contains("open");
+  missedToggle.textContent = `⚠ Missed (${missed}) ${isOpen ? "▲" : "▼"}`;
+});
+
 doneToggle.addEventListener("click", () => {
   doneSection.classList.toggle("open");
   const isOpen = doneSection.classList.contains("open");
-  const done = getTasks().filter(t => t.done).length;
+  const done   = getTasks().filter(t => t.done).length;
   doneToggle.textContent = `Completed (${done}) ${isOpen ? "▲" : "▼"}`;
 });
 
@@ -311,19 +367,12 @@ form.addEventListener("submit", (e) => {
   const repeat = repeatInput.value || null;
   let tasks = getTasks();
   tasks = [{
-    id:        crypto.randomUUID(),
-    text:      v,
-    done:      false,
-    rank:      parseInt(rawRank, 10),
-    deadline,
-    repeat,
-    createdAt: Date.now()
+    id: crypto.randomUUID(), text: v, done: false, missed: false,
+    rank: parseInt(rawRank, 10), deadline, repeat, createdAt: Date.now()
   }, ...tasks];
 
   input.value = ""; rankInput.value = ""; deadlineInput.value = ""; repeatInput.value = "";
-  setTasks(tasks);
-  syncToCalendar(tasks);
-  render(tasks);
+  setTasks(tasks); syncToCalendar(tasks); render(tasks);
 });
 
 // ===== Export ICS =====
@@ -332,10 +381,9 @@ exportBtn.addEventListener("click", () => exportICS(getTasks()));
 // ===== Clear all =====
 clearBtn.addEventListener("click", () => {
   if (!confirm("Clear all tasks?")) return;
-  setTasks([]);
-  syncToCalendar([]);
-  render([]);
+  setTasks([]); syncToCalendar([]); render([]);
 });
 
 // ===== Init =====
+processMissedTasks();
 render(getTasks());
