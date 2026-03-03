@@ -1,7 +1,7 @@
 // ===== Storage =====
 const STORE_KEY = "daily-focus:data:v2";
 const SCHEMA_VERSION = 2;
-const APPS_SCRIPT_URL = "YOUR_WEB_APP_URL_HERE"; // //https://script.google.com/macros/s/AKfycbwVtDty4rlH40c4INa5oMwIbBjjwwTQBGlYcYPIpg61EDPSAmVxO5qKfO68mLaTiis5/exec
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVtDty4rlH40c4INa5oMwIbBjjwwTQBGlYcYPIpg61EDPSAmVxO5qKfO68mLaTiis5/exec";
 
 function now() { return Date.now(); }
 function pad(n) { return String(n).padStart(2, "0"); }
