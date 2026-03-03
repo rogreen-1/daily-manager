@@ -43,12 +43,15 @@ function syncToCalendar(tasks) {
     console.warn("Apps Script URL not configured.");
     return;
   }
+  console.log("Syncing tasks to Google Calendar...", tasks.length, "tasks");
   fetch(APPS_SCRIPT_URL, {
     method:  "POST",
     mode:    "no-cors",
     headers: { "Content-Type": "application/json" },
     body:    JSON.stringify({ tasks })
-  }).catch(err => console.error("Sync failed:", err));
+  })
+  .then(() => console.log("Sync request sent successfully."))
+  .catch(err => console.error("Sync failed:", err));
 }
 // ===== End Google Calendar Sync =====
 
