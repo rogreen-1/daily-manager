@@ -82,33 +82,45 @@ function processMissedTasks() {
   let tasks   = getTasks();
   let changed = false;
 
+  const toAdd = [];
+
   tasks = tasks.map(t => {
-    // If incomplete, daily repeat, and deadline has passed — mark as missed
-    if (!t.done && !t.missed && t.deadline < today) {
-      changed  = true;
-      return { ...t, missed: true };
+    // Skip tasks already done, already missed, no deadline, or not yet overdue
+    if (t.done || t.missed || !t.deadline || t.deadline >= today) return t;
+
+    changed = true;
+
+    if (t.repeat) {
+      // Walk forward from the overdue deadline, spawning a missed instance for
+      // every period already past, then one live instance landing on/after today.
+      let cursor = t;
+      while (true) {
+        const next = spawnRecurrence(cursor);
+        if (next.deadline < today) {
+          // This generated instance is also in the past — mark it missed too
+          toAdd.push({ ...next, missed: true });
+          cursor = next;
+        } else {
+          // First deadline that lands today or later → live, active instance
+          toAdd.push(next);
+          break;
+        }
+      }
     }
-    return t;
+
+    // Mark the original overdue instance as missed
+    return { ...t, missed: true };
   });
 
   if (changed) {
+    // Prepend spawned instances so today's copy appears at the top of the list
+    tasks = [...toAdd, ...tasks];
     setTasks(tasks);
     syncToCalendar(tasks);
     render(tasks);
   }
 }
-
-// Midnight watcher — checks every minute if the date has rolled over
-let lastCheckedDate = todayKey();
-setInterval(() => {
-  const current = todayKey();
-  if (current !== lastCheckedDate) {
-    lastCheckedDate = current;
-    processMissedTasks();
-  }
-}, 60 * 1000);
-// ===== End Missed task handling =====
-
+//===== End Missed Task Handling =====
 // ===== ICS Export =====
 function toICSDate(dateStr) { return dateStr.replace(/-/g, ""); }
 function exportICS(tasks) {
